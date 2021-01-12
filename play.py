@@ -5,6 +5,7 @@ from train_model import encode_board
 
 model = None
 
+
 def eval_board(board):
     board = str(board)
     encoded = encode_board(board)
@@ -25,6 +26,7 @@ def best_move(board, verbose=False):
         board.pop()
     return max_move, max_val
 
+
 def main():
     global model
     model = keras.models.load_model('neuralchess.model')
@@ -40,6 +42,7 @@ def main():
                 break
             except ValueError as err:
                 print(err)
+
 
 if __name__ == '__main__':
     main()

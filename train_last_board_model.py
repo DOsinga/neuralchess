@@ -34,7 +34,12 @@ def encode_board(board):
     return np.asarray([one_hot(ch) for ch in board])
 
 
-def build_model():
+def encode_board_2d(board):
+    board = board.replace(' ', '').split('\n')
+    return np.asarray([[one_hot(ch) for ch in line] for line in board])
+
+
+def build_model_1d():
     board_input = keras.Input(shape=(64, 13))
     board_flat = layers.Flatten()(board_input)
     dense_1 = layers.Dense(512, activation="relu")(board_flat)
@@ -49,8 +54,28 @@ def build_model():
     return model
 
 
+def build_model_2d():
+    board_input = keras.Input(shape=(8, 8, 13))
+    conv_1 = layers.Conv2D(16, (1, 1), activation='relu')(board_input)
+    conv_2 = layers.Conv2D(64, (2, 2), activation='relu')(conv_1)
+    pooled_2 = layers.MaxPooling2D((2, 2))(conv_2)
+    conv_3 = layers.Conv2D(1024, (2, 2), activation='relu')(pooled_2)
+    pooled_3 = layers.MaxPooling2D((2, 2))(conv_3)
+    board_flat = layers.Flatten()(pooled_3)
+    dense_1 = layers.Dense(512, activation="relu")(board_flat)
+    dense_2 = layers.Dense(64, activation="relu")(dense_1)
+    score = layers.Dense(1, activation='sigmoid')(dense_2)
+    model = keras.Model(inputs=board_input, outputs=score, name='neuralchess')
+    model.compile(
+        loss=keras.losses.MeanSquaredError(),
+        optimizer=keras.optimizers.RMSprop(),
+        metrics=["accuracy"],
+    )
+    return model
+
+
 def main():
-    training = open('training.txt').read().split('\n\n')
+    training = open('training-last-boards.txt').read().split('\n\n')
     training = [x.strip().split('\n', 1) for x in training]
     training = [(board, float(score)) for score, board in training]
     boards = np.asarray([encode_board(board) for board, score in training])
@@ -59,7 +84,8 @@ def main():
         boards, np.asarray([score for board, score in training]), test_size=0.25
     )
 
-    model = build_model()
+    model = build_model_1d()
+    model.summary()
 
     history = model.fit(
         X_train, y_train, batch_size=256, epochs=10, validation_split=0.1

@@ -30,41 +30,52 @@ def main():
     for game in game_yielder():
         if game.headers['Result'] not in ('1-0', '0-1'):
             continue
+        end_score = 1.0 if game.headers['Result'] == '1-0' else 0
+
+        game_boards = []
         board = game.board()
         number_of_moves = sum(1 for _ in game.mainline_moves())
-        one_but_last = None
-        two_but_last = None
         for idx, move in enumerate(game.mainline_moves()):
-            if idx == number_of_moves - 1:
-                one_but_last = board.copy()
-            elif idx == number_of_moves - 2:
-                two_but_last = board.copy()
+            other_moves_str = []
+            if idx % 2 == 0:
+                other_moves = [m for m in board.legal_moves if m != move]
+                if len(other_moves) > 2:
+                    if len(other_moves) > 5:
+                        other_moves = random.sample(other_moves, 5)
+                    for alter_move in other_moves:
+                        board.push(alter_move)
+                        other_moves_str.append(str(board))
+                        board.pop()
+
             board.push(move)
-        if not board.is_checkmate():
-            continue
-
-        board = str(board)
-        one_but_last = str(one_but_last)
-        two_but_last = str(two_but_last)
-
-        # Switch the game such that white is the color whose turn it is:
-        if game.headers['Result'] == '0-1':
-            one_but_last = flip_colors(one_but_last)
-        else:
-            two_but_last = flip_colors(two_but_last)
-        boards.append((two_but_last, 0.0))
-        boards.append((one_but_last, 1.0))
-        if len(boards) % 100 == 0:
-            print(len(boards))
-        if len(boards) >= 100_000:
+            if other_moves_str:
+                game_boards.append(
+                    (
+                        (idx * end_score + (number_of_moves - idx) * 0.5) / number_of_moves,
+                        str(board),
+                        other_moves_str,
+                    )
+                )
+        if board.is_checkmate():
+            boards.extend(game_boards)
+        if len(boards) > 1000_000:
             break
 
-    with open('training.txt', 'w') as fout:
-        for board, score in boards:
+    with open('training-boards.txt', 'w') as fout:
+        for idx, (score, best_board, other_boards) in enumerate(boards):
             fout.write('\n')
-            fout.write(str(score) + '\n')
-            fout.write(board)
+            fout.write(str(score * 1.2) + '\n')
+            fout.write(str(idx) + '\n')
+            fout.write('Played\n')
+            fout.write(best_board)
             fout.write('\n')
+            for other_board in other_boards:
+                fout.write('\n')
+                fout.write(str(score * 0.8) + '\n')
+                fout.write(str(idx) + '\n')
+                fout.write('Not Played\n')
+                fout.write(other_board)
+                fout.write('\n')
 
 
 if __name__ == '__main__':
